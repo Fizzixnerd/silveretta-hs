@@ -60,7 +60,7 @@ executable silveretta-hs
   -- other-extensions:    
   
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.7 && <4.8, transformers >=0.3 && <0.4, parsec >=3.1 && <3.2, IndentParser >=2.1 && <2.2
+  build-depends:       base >=4.7 && <4.8, transformers >=0.3 && <0.4, parsec >=3.1 && <3.2, IndentParser >=0.2 && <0.3
   
   -- Directories containing source files.
   hs-source-dirs:      src
