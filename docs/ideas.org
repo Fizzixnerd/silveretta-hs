@@ -1,0 +1,72 @@
+* Silveretta Ideas
+The main idea behind Silveretta is experimentation.  I want to
+experiment with a Lisp that I can modify myself.
+
+** Experiments
+
+*** How much syntax can be added to Lisp before it stops being Lisp?
+I want Silveretta to have some convenience syntax that can be extended
+by users easily.  However, I'm not sure how far I can go with this
+"syntactic sugar" without ruining the essential qualities that make
+Silveretta a Lisp.
+
+An example: classical Lisps have their `let' forms defined so that
+they look something like this:
+
+(let ((var1 val1)
+      (var2 val2)
+      ...
+      (varn valn))
+  <body>)
+
+But this makes it ugly to use let on a single variable:
+
+(let ((var val))
+  <body>)
+
+So I want to make it more easily readable via this syntax:
+
+(let
+  (var1 <- val1)
+  (var2 <- val2)
+  ...
+  (varn <- valn)
+  <body>)
+
+However, this makes it more difficult to parse a let binding
+structure, particularly from the point of view of macros.
+
+My "solution" is to have forms that have specific syntax provide a
+function "parse" that will do the heavy lifting for you.  So, we would
+have here `let.parse' which would parse a let binding for you,
+returning some structure that contained the bindings and the body.
+
+*** Implicit Lists
+Lisp has a lot of parens, and a lot of them are unnecessary, I
+believe.  Programmers layout their code according to the "offside
+rule", and this conveys information about the program structure to
+human readers.  Why not use this layout to convey the structure to the
+Lisp Reader too?
+
+Instead of:
+
+(let
+  (x <- 1)
+  (y <- 7)
+  (+ x y))
+
+How about:
+
+let
+  x <- 1
+  y <- 7
+  + x y
+
+This requires an indent-sensitive parser.  The idea is that macros and
+such will interact with the program as if it has been _transformed_
+into the first form, so that only the reader needs to know how to
+parse things in an indent-sensitive manner.
+
+*** Parametric Types and Type Inference
+I want Silveretta to be closer to ML than traditional Lisps in its
+type system.

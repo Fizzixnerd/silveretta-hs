@@ -1,0 +1,37 @@
+* Silveretta Ideas
+The main idea behind Silveretta is experimentation.  I want to
+experiment with a Lisp that I can modify myself.
+
+** Experiements
+
+*** How much syntax can be added to Lisp before it stops being Lisp?
+I want Silveretta to have some convenience syntax that can be extended
+by users easily.  However, I'm not sure how far I can go with this
+"syntactic sugar" without ruining the essential qualities that make
+Silveretta a Lisp.
+
+An example: classical Lisps have their `let' forms defined so that
+they look something like this:
+
+(let ((var1 val1)
+      (var2 val2)
+      ...
+      (varn valn))
+  <body>)
+
+But this makes it ugly to use let on a single variable:
+
+(let ((var val))
+  <body>)
+
+So I want to make it more easily readable via this syntax:
+
+(let
+  (var1 <- val1)
+  (var2 <- val2)
+  ...
+  (varn <- valn)
+  <body>)
+
+
+*** Implicit Lists
