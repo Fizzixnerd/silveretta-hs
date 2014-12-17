@@ -8,7 +8,6 @@ import Text.Parsec hiding (many, (<|>))
 import Text.Parsec.String
 import Text.Parsec.Token hiding (symbol, float)
 import Text.Parsec.Language
---import Text.ParserCombinators.Parsec.Number hiding (number)
 import qualified Text.ParserCombinators.Parsec.IndentParser.Token as T
 import qualified Text.ParserCombinators.Parsec.IndentParser as IP
 
@@ -28,81 +27,8 @@ data Program a = Program [SExpr a] deriving Show
 data SExpr a = Atom (Atom a) | List [SExpr a] | Nil deriving Show
 data Atom a = Symbol String | Number a deriving Show
 
-{-
---program :: IndentParser String u (Program Double)
-program = do
-  p <- many sexpr <* eof
-  return $ Program p
-
---sexpr :: IndentParser String u (SExpr Double)
-sexpr = do
-  s <- try list <|> atom
-  return s
-
---explicitSexpr :: IndentParser String u (SExpr Double)
-explicitSexpr = do
-  s <- try (List <$> explicitList) <|> atom <* spaces
-  return s
-
---explicitList :: IndentParser String u [SExpr Double]
-explicitList = do
-  char '('
-  sexprs <- many explicitSexpr
-  char ')' <?> "close parenthesis"
-  return $ sexprs
-
---implicitList :: IndentParser String u [SExpr Double]
-implicitList = do
-  sexprs <- try blockList <|> lineList
-  return sexprs
-
---blockList :: IndentParser String u [SExpr Double]
-blockList = do
-  bList <- withBlock (:) (List <$> lineList) (List <$> implicitList)
-  return bList
-
---lineList :: IndentParser String u [SExpr Double]
-lineList = do
-  lHead <- atom
-  lTail <- many explicitSexpr <* spaces
-  return $ lHead : lTail
-
---list :: IndentParser String u (SExpr Double)
-list = do
-  l <- try explicitList <|> implicitList
-  return $ List l
-
---atom :: IndentParser String u (SExpr Double)
-atom = do
-  a <- try number <|> symbol
-  return $ Atom a
-
--}
-
---punctuation :: IndentParser String u Char
 punctuation = oneOf "{}[]#<>%;:.+-*/^&|~!=,"
 
-{-
---symbol :: IndentParser String u (Atom Double)
-symbol = do
-  firstChar <- punctuation <|> letter
-  rest <- many (punctuation <|> alphaNum)
-  return $ Symbol $ firstChar : rest
-
-number = do
-  x <- floating
-  return $ Number (x :: Double)
-
---parseIndented :: String -> Either ParseError (Program Double)
-parseIndented input = runIndent "" $ runParserT program () "" input
-
---main :: IO (Either ParseError (Program Double))
-main = do
-  stuff <- getContents
-  return $ parseIndented stuff
-
--}
-  
 silverettaDef = LanguageDef { commentStart = "/*",
                               commentEnd = "*/",
                               commentLine = ";",
