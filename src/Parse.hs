@@ -57,13 +57,17 @@ silverettaTokenParser = makeTokenParser silverettaDef
 program :: T.IndentCharParser st (Program a)
 program = Program <$> many sexpr
 
+type IndentStringParser st a = IndentParser String st a
+
+
+
 sexpr :: T.IndentCharParser st (SExpr a)
-sexpr = try explicitSexpr <|> implicitSexpr
+sexpr = T.parensOrLineFold silverettaTokenParser (List <$> many1 atom)
 
-implicitSexpr = implicitList
+--implicitSexpr = implicitList
 
-explicitSexpr :: T.IndentCharParser st (SExpr a)
-explicitSexpr = try atom <|> explicitList
+--explicitSexpr :: T.IndentCharParser st (SExpr a)
+--explicitSexpr = try atom <|> explicitList
 
 atom :: T.IndentCharParser st (SExpr a)
 atom = Atom <$> symbol
@@ -71,15 +75,14 @@ atom = Atom <$> symbol
 symbol :: T.IndentCharParser st (Atom a)
 symbol = Symbol <$> T.identifier silverettaTokenParser
 
-explicitList :: T.IndentCharParser st (SExpr a)
-explicitList = List <$> T.parens silverettaTokenParser (many explicitSexpr)
+--explicitList :: T.IndentCharParser st (SExpr a)
+--explicitList = List <$> T.parens silverettaTokenParser (many explicitSexpr)
 
-spaces :: T.IndentCharParser st ()
-spaces = T.whiteSpace silverettaTokenParser
+--spaces :: T.IndentCharParser st ()
+--spaces = T.whiteSpace silverettaTokenParser
 
-implicitList :: T.IndentCharParser st (SExpr a)
-implicitList = 
-  return $ List $ T.parensOrLineFold implicitList
+--implicitList :: T.IndentCharParser st (SExpr a)
+--implicitList = T.parensOrLineFold silverettaTokenParser implicitList
 {-
   implicitList = do
   firstLine <- lineList
@@ -88,13 +91,16 @@ implicitList =
   return $ List $ firstLine : rest
 -}
 
-lineList :: T.IndentCharParser st (SExpr a)
-lineList = do
-  l <- List <$> explicitSexpr
-  return l
+--lineList :: T.IndentCharParser st (SExpr a)
+--lineList = do
+--  l <- List <$> explicitSexpr
+--  return l
 
 testText1 = "(hello)"
 testText2 = "hello there"
-testText3 = "hello\n\tthere"
+testText3 = "(hello\n\tthere)"
 
-pmain = parse testText1
+pmain = do
+  print $ parse testText1
+  print $ parse testText2
+  print $ parse testText3
