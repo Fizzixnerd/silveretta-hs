@@ -3,14 +3,14 @@
 
 module Parse (Program,
               SExpr,
-              Atom,
-              parse)
+              Atom)
        where
 
+import Data.List
 import Data.Functor.Identity
 import Control.Applicative
 import Control.Monad.Trans.State.Lazy
-import Text.Parsec hiding (many, (<|>), parse, spaces)
+import Text.Parsec hiding (many, (<|>), parse, spaces, newline)
 import Text.Parsec.String
 import Text.Parsec.Token hiding (symbol, float)
 import Text.Parsec.Language
@@ -29,18 +29,18 @@ atom ::= symbol | number
 number ::= <float>
 -}
 
-data Program a = Program [SExpr a] deriving Show
-data SExpr a = Atom (Atom a) | List [SExpr a] | Nil deriving Show
-data Atom a = Symbol String | Number a deriving Show
+data Program = Program [SExpr] deriving (Show, Eq)
+data SExpr = Atom (Atom) | List [SExpr] | Nil deriving (Show, Eq)
+data Atom = Symbol String | Number Integer deriving (Show, Eq)
 
 -- | Return a Silveretta Program parse tree of the String s.
-parse :: String -> Either ParseError (Program a)
-parse s = IP.parse program "" s
+--parse :: String -> Either ParseError (Program a)
+--parse s = IP.parse program "" s
 
-punctuation = oneOf "{}[]#<>%:.+-*/^&|~!=,"
+punctuation = oneOf "{}[]<>#%:.+-*/^&|~!=,"
 
-silverettaDef = LanguageDef { commentStart = "/*",
-                              commentEnd = "*/",
+silverettaDef = LanguageDef { commentStart = ";{",
+                              commentEnd = ";}",
                               commentLine = ";",
                               nestedComments = True,
                               identStart = punctuation <|> letter,
@@ -52,55 +52,84 @@ silverettaDef = LanguageDef { commentStart = "/*",
                               caseSensitive = True
                             }
 
-silverettaTokenParser = makeTokenParser silverettaDef
+agTokP :: GenTokenParser String u Identity
+agTokP = makeTokenParser silverettaDef
 
-program :: T.IndentCharParser st (Program a)
-program = Program <$> many sexpr
+indentSize :: Int
+indentSize = 2
 
-type IndentStringParser st a = IndentParser String st a
-
-
-
-sexpr :: T.IndentCharParser st (SExpr a)
-sexpr = T.parensOrLineFold silverettaTokenParser (List <$> many1 atom)
-
---implicitSexpr = implicitList
-
---explicitSexpr :: T.IndentCharParser st (SExpr a)
---explicitSexpr = try atom <|> explicitList
-
-atom :: T.IndentCharParser st (SExpr a)
-atom = Atom <$> symbol
-
-symbol :: T.IndentCharParser st (Atom a)
-symbol = Symbol <$> T.identifier silverettaTokenParser
-
---explicitList :: T.IndentCharParser st (SExpr a)
---explicitList = List <$> T.parens silverettaTokenParser (many explicitSexpr)
-
---spaces :: T.IndentCharParser st ()
---spaces = T.whiteSpace silverettaTokenParser
-
---implicitList :: T.IndentCharParser st (SExpr a)
---implicitList = T.parensOrLineFold silverettaTokenParser implicitList
 {-
-  implicitList = do
-  firstLine <- lineList
-  spaces
-  rest <- IP.block (many sexpr)
-  return $ List $ firstLine : rest
+tokenizeIndents :: String -> String
+tokenizeIndents = unlines . map (\line -> unspan $ convertToIndentTokens $ span (==' ') line) . lines
+  where
+    unspan (x, y) = x ++ y
+    convertToIndentTokens (indents, rest) = (unwords $ replicate ((length indents) `div` indentSize) "#<indent> ", rest)
+
+tokenizeNewlines :: String -> String
+tokenizeNewlines = unlines . map (\line -> line ++ " #<newline>") . lines
 -}
 
---lineList :: T.IndentCharParser st (SExpr a)
---lineList = do
---  l <- List <$> explicitSexpr
---  return l
+wrap :: [String] -> [String]
+wrap sl = case sl of
+  (x:y:zs) -> let indx = indentation x
+                  indy = indentation y
+              in
+               if indy > indx then
+                 ((replicate (indy - indx) '(') ++ x):wrap (y:zs)
+               else if indy < indx then
+                 (x ++ (replicate (indx - indy) ')')):wrap (y:zs)
+               else
+                 (wrap1 x):wrap (y:zs)
+  [x] -> if (indentation x) /= 0 then
+           [x ++ replicate (indentation x) ')']
+         else
+           [wrap1 x]
+  where
+    indentify s = map (\line -> (indentation line, line)) $ lines $ s
+    indentation line = (length $ fst (span (==' ') line)) `div` indentSize
+
+wrap1 :: String -> String
+wrap1 s = "(" ++ s ++ ")"
+
+spaces :: T.IndentCharParser st ()
+spaces = T.whiteSpace agTokP
+
+program :: T.IndentCharParser st Program
+program = Program <$> many1 sexpr
+
+list :: T.IndentCharParser st SExpr
+list = do
+  char '('
+  spaces
+  l <- many sexpr
+  spaces
+  char ')'
+  return $ List $ l
+
+sexpr :: T.IndentCharParser st SExpr
+sexpr = (try list <|> atom) <* spaces
+
+atom :: T.IndentCharParser st SExpr
+atom = Atom <$> (try number <|> symbol)
+
+symbol :: T.IndentCharParser st Atom
+symbol = Symbol <$> T.identifier agTokP
+
+number :: T.IndentCharParser st Atom
+number = Number <$> T.integer agTokP
+
+agParse :: String -> Either ParseError Program
+agParse s = IP.parse program "" $ unlines $ (if (length $ lines s) == 1 then lines . wrap1 else wrap . lines) $ s
 
 testText1 = "(hello)"
 testText2 = "hello there"
-testText3 = "(hello\n\tthere)"
+testText3 = "hello\nthere"
+testText4 = "hello\n  there"
+testText5 = "let\n  x <- 1\n  y <- 4\n  if (> x y)\n    + x y\n    - y x"
 
 pmain = do
-  print $ parse testText1
-  print $ parse testText2
-  print $ parse testText3
+  print $ agParse testText1
+  print $ agParse testText2
+  print $ agParse testText3
+  print $ agParse testText4
+  print $ agParse testText5
