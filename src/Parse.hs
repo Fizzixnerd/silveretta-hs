@@ -1,9 +1,11 @@
 {-# OPTIONS_GHC -fdefer-type-errors #-}
 {-# OPTIONS_GHC -fwarn-typed-holes #-}
 
-module Parse (Program,
-              SExpr,
-              Atom)
+module Parse (Program(Program),
+              SExpr(Atom,List,Nil),
+              Atom(Symbol,Number),
+              agParse,
+              testText5)
        where
 
 import Data.List
@@ -77,15 +79,14 @@ wrap sl = case sl of
                if indy > indx then
                  ((replicate (indy - indx) '(') ++ x):wrap (y:zs)
                else if indy < indx then
-                 (x ++ (replicate (indx - indy) ')')):wrap (y:zs)
+                 ((wrap1 x) ++ (replicate (indx - indy) ')')):wrap (y:zs)
                else
                  (wrap1 x):wrap (y:zs)
   [x] -> if (indentation x) /= 0 then
-           [x ++ replicate (indentation x) ')']
+           [(wrap1 x) ++ replicate (indentation x) ')']
          else
            [wrap1 x]
   where
-    indentify s = map (\line -> (indentation line, line)) $ lines $ s
     indentation line = (length $ fst (span (==' ') line)) `div` indentSize
 
 wrap1 :: String -> String
@@ -125,7 +126,7 @@ testText1 = "(hello)"
 testText2 = "hello there"
 testText3 = "hello\nthere"
 testText4 = "hello\n  there"
-testText5 = "let\n  x <- 1\n  y <- 4\n  if (> x y)\n    + x y\n    - y x"
+testText5 = "let\n  x <- 1\n  y <- 4\n  if (> x y)\n    + x y\n    - y x\nlet\n  foo <- bar\n  foo"
 
 pmain = do
   print $ agParse testText1
