@@ -12,7 +12,7 @@ module Forms (Form(Let, FunctionCall, Symbol, Number, Function, Nil),
 import qualified Parse as P
 import Text.PrettyPrint
 
-data Form = Let { bindings :: [Binding], body :: [Form] }
+data Form = Let { bindings :: [Binding], body :: Form }
           | FunctionCall { func :: Form, args :: [Form]}
           | Symbol String
           | Number Integer
@@ -46,7 +46,7 @@ process (P.Program pl) = map processSexpr pl
 
 processSexpr :: P.SExpr -> Form
 processSexpr (P.List (x:xs))
-  | x == P.Atom (P.Symbol "let") = Let { bindings = map toBinding (getBindings xs), body = map processSexpr (getBody xs) }
+  | x == P.Atom (P.Symbol "let") = Let { bindings = map toBinding (getBindings xs), body = processSexpr (getBody xs) }
   | otherwise = FunctionCall { func = processSexpr x , args = map processSexpr xs }
 processSexpr (P.Atom (P.Number n)) = Number n
 processSexpr (P.Atom (P.Symbol s)) = Symbol s
@@ -70,8 +70,13 @@ getArgs _ = error "Not a FunctionCall."
 getBindings :: [P.SExpr] -> [P.SExpr]
 getBindings xs = filter isBinding xs
 
-getBody :: [P.SExpr] -> [P.SExpr]
-getBody xs = filter (not . isBinding) xs  
+getBody :: [P.SExpr] -> P.SExpr
+getBody xs =
+  let body = filter (not . isBinding) xs in
+  if (length body) > 1 then
+    error "`Let' body has more than one Form."
+  else
+    head body
 
 isBinding :: P.SExpr -> Bool
 isBinding (P.List l)
@@ -103,7 +108,7 @@ prettyForm (Function f) = text "#<function>"
 prettyForm FunctionCall {func = func, args = args} =
   prettyForm func $+$ (vcat $ map (nest 2 . prettyForm) args)
 prettyForm Let {bindings = bindings, body = body} =
-  text "let" $+$ (vcat $ map (nest 2 . prettyBinding) bindings) $+$ (vcat $ map (nest 2 . prettyForm) body)
+  text "let" $+$ (vcat $ map (nest 2 . prettyBinding) bindings) $+$ ((nest 2 . prettyForm) $ body)
 
 prettyBinding :: Binding -> Doc
 prettyBinding Binding { var = var, val = val } =

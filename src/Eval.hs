@@ -22,6 +22,17 @@ evalInEnv e (F.Symbol s) =
                                   msg = "Couldn't find Symbol binding in Environment.",
                                   more = Nothing }
     Just f -> evalInEnv e f
+evalInEnv e (F.Let {F.bindings = bindings, F.body = body}) =
+  let evaledBindings = map (\F.Binding {F.var = var, F.val = val} -> (var, evalInEnv e val)) bindings
+      firstPossibleError = checkBindings evaledBindings in
+      case firstPossibleError of
+        Nothing ->
+          let newEnv = E.pushEnv e $ foldl E.addPair E.empty $ forceBindings evaledBindings in
+          evalInEnv newEnv body
+        Just err ->
+          Left $ EvalError { badForm = F.Let { F.bindings = bindings, F.body = body },
+                             msg = "Error in Bindings given in Let Form.",
+                             more = Just err }
 evalInEnv e (F.FunctionCall {F.func = func, F.args = args}) =
   let evaledFunc = evalInEnv e func
       evaledArgs = map (evalInEnv e) args in
@@ -46,6 +57,11 @@ evalInEnv e (F.FunctionCall {F.func = func, F.args = args}) =
                                 msg = "Form is not a Function.",
                                 more = Nothing }
 
+checkBindings = checkArgs . (map snd)
+
+forceBindings :: [(F.BindingVar, Either EvalError F.Form)] -> [(F.BindingVar, F.Form)]
+forceBindings bs = zip (map fst bs) (forceArgs $ map snd bs)
+
 checkArgs :: [Either EvalError F.Form] -> Maybe EvalError
 checkArgs ((Left err):xs) = Just err
 checkArgs ((Right val):xs) = checkArgs xs
@@ -53,9 +69,11 @@ checkArgs [] = Nothing
 
 forceArgs :: [Either EvalError F.Form] -> [F.Form]
 forceArgs ((Right val):xs) = val:forceArgs xs
+forceArgs ((Left err):xs) = error "Tried to force an error in Eval.forceArgs."
 forceArgs [] = []
 
 agEval :: String -> [Either EvalError F.Form]
 agEval s = map eval $ F.agProcess s
 
-emain = agEval "+"
+emain = agEval "let\n  x <- 3\n  y <- 4\n  + x y"
+        

@@ -2,8 +2,9 @@ module Environment(Env(Env),
                    binds, up,
                    empty,
                    addBind,
+                   addPair,
                    pushEnv,
-                  lookup)
+                   lookup)
        where
 
 import qualified Data.Map as Map
@@ -15,9 +16,12 @@ data Env = Env { binds :: (Map.Map F.BindingVar F.Form), up :: (Maybe Env) }
 empty :: Env
 empty = Env { binds = Map.empty, up = Nothing }
 
-addBind :: F.Binding -> Env -> Env
-addBind (F.Binding {F.var = var, F.val = val}) (Env {binds = binds, up = up}) =
-  Env {binds = Map.insert var val binds, up = up}
+addBind :: Env -> F.Binding -> Env
+addBind (Env {binds = binds, up = up}) (F.Binding {F.var = var, F.val = val}) =
+  Env { binds = Map.insert var val binds, up = up }
+
+addPair :: Env -> (F.BindingVar, F.Form) -> Env
+addPair e p = addBind e $ F.Binding { F.var = fst p, F.val = snd p }
 
 -- | Pushes Env new onto Env old, returning Env new with `up' set to Env old.
 pushEnv :: Env -> Env -> Env
