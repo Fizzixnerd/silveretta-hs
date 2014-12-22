@@ -111,7 +111,7 @@ sexpr :: T.IndentCharParser st SExpr
 sexpr = (try list <|> atom) <* spaces
 
 atom :: T.IndentCharParser st SExpr
-atom = Atom <$> (try number <|> symbol)
+atom = Atom <$> (try symbol <|> number)
 
 symbol :: T.IndentCharParser st Atom
 symbol = Symbol <$> T.identifier agTokP
