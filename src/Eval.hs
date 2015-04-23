@@ -1,5 +1,6 @@
 module Eval(eval,
-            evalInEnv)
+            evalInEnv,
+            agEval)
        where
 
 import qualified Global as G
@@ -41,21 +42,26 @@ evalInEnv e (F.FunctionCall {F.func = func, F.args = args}) =
     Left err -> Left err
     Right f ->
       -- func not an error
-      -- now check to make sure func is in fact a Function
-      case f of
-        F.Function f ->
-          -- Func is a function
-          -- now check args to see if they are errors.
-          let firstPossibleError = checkArgs evaledArgs in
-          case firstPossibleError of
-            -- args are fine, evaluate the function on the args
-            Nothing -> Right $ f (forceArgs evaledArgs)
-            Just err -> Left $ EvalError { badForm = F.FunctionCall {F.func = func, F.args = args},
-                                           msg = "Problem with argument in FunctionCall.",
-                                           more = Just err }
-        _ -> Left $ EvalError { badForm = func,
-                                msg = "Form is not a Function.",
-                                more = Nothing }
+      if null args then
+        -- no args, so return whatever was evaled.
+        evaledFunc
+      else
+        -- now check to make sure func is in fact a Function
+        case f of
+          F.Function f ->
+            -- Func is a function
+            let firstPossibleError = checkArgs evaledArgs in
+            case firstPossibleError of
+              -- args are fine, evaluate the function on the args
+              Nothing -> Right $ f (forceArgs evaledArgs)
+              Just err -> Left $ EvalError { badForm = F.FunctionCall {F.func = func, F.args = args},
+                                             msg = "Problem with argument in FunctionCall.",
+                                             more = Just err }
+          _ ->
+            -- Func is not a function!
+            Left $ EvalError { badForm = func,
+                               msg = "Form is not a Function.",
+                               more = Nothing }
 
 checkBindings = checkArgs . (map snd)
 
@@ -72,8 +78,7 @@ forceArgs ((Right val):xs) = val:forceArgs xs
 forceArgs ((Left err):xs) = error "Tried to force an error in Eval.forceArgs."
 forceArgs [] = []
 
-agEval :: String -> [Either EvalError F.Form]
-agEval s = map eval $ F.agProcess s
+agEval s = fmap (map eval) $ F.agProcess s
 
 emain = agEval "let\n  x <- 3\n  y <- 4\n  + x y"
         

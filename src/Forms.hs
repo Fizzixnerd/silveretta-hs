@@ -13,10 +13,11 @@ import qualified Parse as P
 import Text.PrettyPrint
 
 data Form = Let { bindings :: [Binding], body :: Form }
+          | If {predic :: Form, conseq :: Form, ante :: Form}
           | FunctionCall { func :: Form, args :: [Form]}
           | Symbol String
-          | Number Integer
-          | Function ([Form] -> Form)
+          | Number Double
+          | Function (Form -> Form)
           | Nil
 
 instance Eq Form where
@@ -25,6 +26,8 @@ instance Eq Form where
   Symbol s == Symbol s2 = s == s2
   Number n == Number n2 = n == n2
   Nil == Nil = True
+  If {predic = p, conseq = c, ante = a} == If {predic = p2, conseq = c2, ante = a2} =
+    (p == p2) && (c == c2) && (a == a2)
   _ == _ = False
 
 data Binding = Binding { var :: BindingVar,  val :: Form } deriving Eq
@@ -46,7 +49,11 @@ process (P.Program pl) = map processSexpr pl
 
 processSexpr :: P.SExpr -> Form
 processSexpr (P.List (x:xs))
-  | x == P.Atom (P.Symbol "let") = Let { bindings = map toBinding (getBindings xs), body = processSexpr (getBody xs) }
+  | x == P.Atom (P.Symbol "let") = Let { bindings = map toBinding (getLetBindings xs),
+                                         body = processSexpr (getLetBody xs) }
+  | x == P.Atom (P.Symbol "if") = If { predic = processSexpr (getPredicate xs),
+                                       conseq = processSexpr (getIfConsequent xs),
+                                       ante =  processSexpr (getIfAntecedent xs) }
   | otherwise = FunctionCall { func = processSexpr x , args = map processSexpr xs }
 processSexpr (P.Atom (P.Number n)) = Number n
 processSexpr (P.Atom (P.Symbol s)) = Symbol s
@@ -67,16 +74,18 @@ getArgs :: P.SExpr -> P.SExpr
 getArgs (P.List l) = P.List $ tail l
 getArgs _ = error "Not a FunctionCall."
 
-getBindings :: [P.SExpr] -> [P.SExpr]
-getBindings xs = filter isBinding xs
+getLetBindings :: [P.SExpr] -> [P.SExpr]
+getLetBindings xs = filter isBinding xs
 
-getBody :: [P.SExpr] -> P.SExpr
-getBody xs =
+getLetBody :: [P.SExpr] -> P.SExpr
+getLetBody xs =
   let body = filter (not . isBinding) xs in
   if (length body) > 1 then
     error "`Let' body has more than one Form."
   else
     head body
+
+getIfBody :: [P.SExpr] -> P
 
 isBinding :: P.SExpr -> Bool
 isBinding (P.List l)
@@ -88,11 +97,13 @@ isSymbol :: P.SExpr -> Bool
 isSymbol (P.Atom (P.Symbol _)) = True
 isSymbol _ = False
 
-agProcess :: String -> [Form]
-agProcess s = let parsed = P.agParse s in
+agProcess s = fmap process $ P.agParse s
+{-
+agProcess s = P.agParse s in
   case parsed of
     (Right parsedProgram) -> process parsedProgram
     (Left e) -> []
+-}
 
 showForm :: Form -> String
 showForm = show . prettyForm
@@ -102,16 +113,24 @@ showBinding = show . prettyBinding
 
 prettyForm :: Form -> Doc
 prettyForm Nil = text "nil"
-prettyForm (Number n) = integer n
+prettyForm (Number n) = double n
 prettyForm (Symbol s) = text s
 prettyForm (Function f) = text "#<function>"
 prettyForm FunctionCall {func = func, args = args} =
-  prettyForm func $+$ (vcat $ map (nest 2 . prettyForm) args)
+  prettyForm func
+  $+$ (vcat $ map (nest 2 . prettyForm) args)
 prettyForm Let {bindings = bindings, body = body} =
-  text "let" $+$ (vcat $ map (nest 2 . prettyBinding) bindings) $+$ ((nest 2 . prettyForm) $ body)
+  text "let"
+  $+$ (vcat $ map (nest 2 . prettyBinding) bindings)
+  $+$ ((nest 2 . prettyForm) $ body)
+prettyForm If {predic = predic, conseq = conseq, anti = anti} =
+  text "if ("
+  $+$ (prettyForm predic)
+  $+$ (text ")")
+  $+$ (vcat $ map (nest 2 . prettyForm) [conseq, anti])
 
 prettyBinding :: Binding -> Doc
 prettyBinding Binding { var = var, val = val } =
-  parens $ hsep [text $ show var, text "<-", prettyForm val]
+  hsep [text $ show var, text "<-", prettyForm val]
 
 fmain = agProcess P.testText5

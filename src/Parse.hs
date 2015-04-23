@@ -12,12 +12,12 @@ import Data.List
 import Data.Functor.Identity
 import Control.Applicative
 import Control.Monad.Trans.State.Lazy
-import Text.Parsec hiding (many, (<|>), parse, spaces, newline)
+import Text.Parsec hiding (many, (<|>), spaces, newline)
 import Text.Parsec.String
-import Text.Parsec.Token hiding (symbol, float)
+import qualified Text.Parsec.Token as T --hiding (symbol, float)
 import Text.Parsec.Language
-import qualified Text.ParserCombinators.Parsec.IndentParser.Token as T
-import qualified Text.ParserCombinators.Parsec.IndentParser as IP
+--import qualified Text.ParserCombinators.Parsec.IndentParser.Token as T
+--import qualified Text.ParserCombinators.Parsec.IndentParser as IP
   
 {- Grammar:
 program ::= { sexpr }* <eof>
@@ -33,7 +33,7 @@ number ::= <float>
 
 data Program = Program [SExpr] deriving (Show, Eq)
 data SExpr = Atom (Atom) | List [SExpr] | Nil deriving (Show, Eq)
-data Atom = Symbol String | Number Integer deriving (Show, Eq)
+data Atom = Symbol String | Number Double deriving (Show, Eq)
 
 -- | Return a Silveretta Program parse tree of the String s.
 --parse :: String -> Either ParseError (Program a)
@@ -41,21 +41,21 @@ data Atom = Symbol String | Number Integer deriving (Show, Eq)
 
 punctuation = oneOf "{}[]<>#%:.+-*/^&|~!=,"
 
-silverettaDef = LanguageDef { commentStart = ";{",
-                              commentEnd = ";}",
-                              commentLine = ";",
-                              nestedComments = True,
-                              identStart = punctuation <|> letter,
-                              identLetter = punctuation <|> alphaNum,
-                              opStart = opStart emptyDef,
-                              opLetter = opLetter emptyDef,
-                              reservedNames = [],
-                              reservedOpNames = [],
-                              caseSensitive = True
-                            }
+silverettaDef = T.LanguageDef { T.commentStart = ";{",
+                                T.commentEnd = ";}",
+                                T.commentLine = ";",
+                                T.nestedComments = True,
+                                T.identStart = punctuation <|> letter,
+                                T.identLetter = punctuation <|> alphaNum,
+                                T.opStart = T.opStart emptyDef,
+                                T.opLetter = T.opLetter emptyDef,
+                                T.reservedNames = [],
+                                T.reservedOpNames = [],
+                                T.caseSensitive = True
+                              }
 
-agTokP :: GenTokenParser String u Identity
-agTokP = makeTokenParser silverettaDef
+agTokP :: T.GenTokenParser String u Identity
+agTokP = T.makeTokenParser silverettaDef
 
 indentSize :: Int
 indentSize = 2
@@ -92,35 +92,35 @@ wrap sl = case sl of
 wrap1 :: String -> String
 wrap1 s = "(" ++ s ++ ")"
 
-spaces :: T.IndentCharParser st ()
+--spaces :: T.IndentCharParser st ()
 spaces = T.whiteSpace agTokP
 
-program :: T.IndentCharParser st Program
+--program :: T.IndentCharParser st Program
 program = Program <$> many1 sexpr
 
-list :: T.IndentCharParser st SExpr
+--list :: T.IndentCharParser st SExpr
 list = do
-  char '('
+  _ <- char '('
   spaces
   l <- many sexpr
   spaces
-  char ')'
+  _ <- char ')'
   return $ List $ l
 
-sexpr :: T.IndentCharParser st SExpr
+--sexpr :: T.IndentCharParser st SExpr
 sexpr = (try list <|> atom) <* spaces
 
-atom :: T.IndentCharParser st SExpr
+--atom :: T.IndentCharParser st SExpr
 atom = Atom <$> (try symbol <|> number)
 
-symbol :: T.IndentCharParser st Atom
+--symbol :: T.IndentCharParser st Atom
 symbol = Symbol <$> T.identifier agTokP
 
-number :: T.IndentCharParser st Atom
-number = Number <$> T.integer agTokP
+--number :: T.IndentCharParser st Atom
+number = Number <$> T.float agTokP
 
 agParse :: String -> Either ParseError Program
-agParse s = IP.parse program "" $ unlines $ (if (length $ lines s) == 1 then lines . wrap1 else wrap . lines) $ s
+agParse s = parse program "" $ unlines $ (if (length $ lines s) == 1 then lines . wrap1 else wrap . lines) $ s
 
 testText1 = "(hello)"
 testText2 = "hello there"
