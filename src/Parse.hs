@@ -8,16 +8,11 @@ module Parse (Program(Program),
               testText5)
        where
 
-import Data.List
 import Data.Functor.Identity
 import Control.Applicative
-import Control.Monad.Trans.State.Lazy
 import Text.Parsec hiding (many, (<|>), spaces, newline)
-import Text.Parsec.String
-import qualified Text.Parsec.Token as T --hiding (symbol, float)
+import qualified Text.Parsec.Token as T
 import Text.Parsec.Language
---import qualified Text.ParserCombinators.Parsec.IndentParser.Token as T
---import qualified Text.ParserCombinators.Parsec.IndentParser as IP
   
 {- Grammar:
 program ::= { sexpr }* <eof>
@@ -39,8 +34,10 @@ data Atom = Symbol String | Number Double deriving (Show, Eq)
 --parse :: String -> Either ParseError (Program a)
 --parse s = IP.parse program "" s
 
+punctuation :: ParsecT String u Identity Char
 punctuation = oneOf "{}[]<>#%:.+-*/^&|~!=,"
 
+silverettaDef :: GenLanguageDef String u Identity
 silverettaDef = T.LanguageDef { T.commentStart = ";{",
                                 T.commentEnd = ";}",
                                 T.commentLine = ";",
@@ -60,17 +57,6 @@ agTokP = T.makeTokenParser silverettaDef
 indentSize :: Int
 indentSize = 2
 
-{-
-tokenizeIndents :: String -> String
-tokenizeIndents = unlines . map (\line -> unspan $ convertToIndentTokens $ span (==' ') line) . lines
-  where
-    unspan (x, y) = x ++ y
-    convertToIndentTokens (indents, rest) = (unwords $ replicate ((length indents) `div` indentSize) "#<indent> ", rest)
-
-tokenizeNewlines :: String -> String
-tokenizeNewlines = unlines . map (\line -> line ++ " #<newline>") . lines
--}
-
 wrap :: [String] -> [String]
 wrap sl = case sl of
   (x:y:zs) -> let indx = indentation x
@@ -86,19 +72,20 @@ wrap sl = case sl of
            [(wrap1 x) ++ replicate (indentation x) ')']
          else
            [wrap1 x]
+  [] -> []
   where
     indentation line = (length $ fst (span (==' ') line)) `div` indentSize
 
 wrap1 :: String -> String
 wrap1 s = "(" ++ s ++ ")"
 
---spaces :: T.IndentCharParser st ()
+spaces :: ParsecT String u Identity ()
 spaces = T.whiteSpace agTokP
 
---program :: T.IndentCharParser st Program
+program :: ParsecT String u Identity Program
 program = Program <$> many1 sexpr
 
---list :: T.IndentCharParser st SExpr
+list :: ParsecT String u Identity SExpr
 list = do
   _ <- char '('
   spaces
@@ -107,16 +94,16 @@ list = do
   _ <- char ')'
   return $ List $ l
 
---sexpr :: T.IndentCharParser st SExpr
+sexpr :: ParsecT String u Identity SExpr
 sexpr = (try list <|> atom) <* spaces
 
---atom :: T.IndentCharParser st SExpr
+atom :: ParsecT String u Identity SExpr
 atom = Atom <$> (try symbol <|> number)
 
---symbol :: T.IndentCharParser st Atom
+symbol :: ParsecT String u Identity Atom
 symbol = Symbol <$> T.identifier agTokP
 
---number :: T.IndentCharParser st Atom
+number :: ParsecT String u Identity Atom
 number = Number <$> T.float agTokP
 
 agParse :: String -> Either ParseError Program
@@ -128,6 +115,7 @@ testText3 = "hello\nthere"
 testText4 = "hello\n  there"
 testText5 = "let\n  x <- 1\n  y <- 4\n  if (> x y)\n    + x y\n    - y x\nlet\n  foo <- bar\n  foo"
 
+pmain :: IO ()
 pmain = do
   print $ agParse testText1
   print $ agParse testText2

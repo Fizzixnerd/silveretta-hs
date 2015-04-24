@@ -1,5 +1,3 @@
 import Parse
-import Forms
 
-main = do
-  return $ parse "hello"
+main = print $ agParse "hello"
